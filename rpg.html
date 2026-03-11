@@ -3,175 +3,171 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mini RPG Advanced</title>
+<title>Optimiertes Mini RPG</title>
 <style>
-body {
-  margin: 0;
-  font-family: Arial, sans-serif;
-  background: #222;
-  color: #fff;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-h1 { margin: 20px 0 5px 0; }
-#stats { margin-bottom: 10px; }
-#game {
-  display: grid;
-  grid-template-columns: repeat(10, 40px);
-  grid-template-rows: repeat(10, 40px);
-  gap: 2px;
-}
-.cell {
-  width: 40px;
-  height: 40px;
-  background: #444;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  font-weight: bold;
-  font-size: 1.2em;
-  border-radius: 5px;
-  transition: background 0.2s;
-}
-.player { background: #3498db; }
-.wall { background: #555; }
-.enemy { background: #e74c3c; }
-.gold { background: #f1c40f; }
-.potion { background: #2ecc71; }
-#controls {
-  margin-top: 10px;
-  display: grid;
-  grid-template-columns: repeat(3, 60px);
-  gap: 5px;
-}
-button {
-  padding: 10px;
-  font-size: 1.2em;
-  border-radius: 5px;
-  border: none;
-  cursor: pointer;
-}
-@media (max-width:500px){
-  #game { grid-template-columns: repeat(10, 30px); grid-template-rows: repeat(10, 30px);}
-  .cell { width: 30px; height: 30px; font-size: 1em;}
-  #controls { grid-template-columns: repeat(3, 50px); }
+body {margin:0;font-family:Arial,sans-serif;background:#222;color:#fff;display:flex;flex-direction:column;align-items:center;}
+h1{margin:20px 0 5px 0;}
+#stats{margin-bottom:10px;}
+#game{display:grid;grid-template-columns:repeat(10,40px);grid-template-rows:repeat(10,40px);gap:2px;}
+.cell{width:40px;height:40px;background:#444;display:flex;justify-content:center;align-items:center;font-weight:bold;font-size:1.2em;border-radius:5px;transition:background 0.2s;}
+.player{background:#3498db;}
+.wall{background:#555;}
+.enemy-red{background:#e74c3c;}
+.enemy-green{background:#2ecc71;}
+.enemy-yellow{background:#f1c40f;}
+.gold{background:#f39c12;}
+.potion{background:#9b59b6;}
+.exit{background:#1abc9c;}
+#controls{position:fixed;bottom:20px;display:grid;grid-template-columns:60px 60px 60px;gap:5px;}
+button{padding:10px;font-size:1.2em;border-radius:5px;border:none;cursor:pointer;}
+@media(max-width:500px){
+#game{grid-template-columns:repeat(10,30px);grid-template-rows:repeat(10,30px);}
+.cell{width:30px;height:30px;font-size:1em;}
+#controls{grid-template-columns:repeat(3,50px);}
 }
 </style>
 </head>
 <body>
-<h1>Mini RPG Advanced</h1>
-<div id="stats">HP: <span id="hp">10</span> | Gold: <span id="gold">0</span></div>
+<h1>Mini RPG Optimized</h1>
+<div id="stats">HP: <span id="hp">10</span> | Gold: <span id="gold">0</span> | Level: <span id="level">1</span> | XP: <span id="xp">0</span></div>
 <div id="game"></div>
 <div id="controls">
-  <button id="up">↑</button>
-  <button id="left">←</button>
-  <button id="down">↓</button>
-  <button id="right">→</button>
+<button id="up">↑</button>
+<button id="left">←</button>
+<button id="down">↓</button>
+<button id="right">→</button>
 </div>
-
 <script>
-const rows = 10, cols = 10;
-let player = { r: 0, c: 0, hp: 10, gold: 0 };
-let enemies = [{r:5,c:5},{r:7,c:2}];
-let golds = [{r:2,c:3},{r:7,c:1},{r:3,c:8}];
-let potions = [{r:4,c:0}];
-let walls = [{r:3,c:3},{r:4,c:4},{r:6,c:6}];
+const rows=10,cols=10;
+let player={r:0,c:0,hp:10,gold:0,xp:0,level:1};
+let grid=[];
+let levelData=[];
+const maxLevels=3;
 
-const gameDiv = document.getElementById('game');
-const hpSpan = document.getElementById('hp');
-const goldSpan = document.getElementById('gold');
+const gameDiv=document.getElementById('game');
+const hpSpan=document.getElementById('hp');
+const goldSpan=document.getElementById('gold');
+const xpSpan=document.getElementById('xp');
+const levelSpan=document.getElementById('level');
 
-let grid = [];
-
-function init() {
-  grid = [];
-  gameDiv.innerHTML = '';
-  player = { r:0, c:0, hp:10, gold:0 };
-  drawGrid();
-  draw();
+function generateLevel(lv){
+    // Random walls, enemies, items
+    const walls=[], golds=[], potions=[], enemies=[];
+    for(let i=0;i<15;i++){walls.push({r:Math.floor(Math.random()*rows),c:Math.floor(Math.random()*cols)});}
+    for(let i=0;i<3;i++){golds.push({r:Math.floor(Math.random()*rows),c:Math.floor(Math.random()*cols)});}
+    for(let i=0;i<2;i++){potions.push({r:Math.floor(Math.random()*rows),c:Math.floor(Math.random()*cols)});}
+    // Gegner: rot=HP Schaden, grün=stark, gelb=Gold-Dieb
+    enemies.push({r:Math.floor(Math.random()*rows),c:Math.floor(Math.random()*cols),type:'enemy-red'});
+    enemies.push({r:Math.floor(Math.random()*rows),c:Math.floor(Math.random()*cols),type:'enemy-green'});
+    enemies.push({r:Math.floor(Math.random()*rows),c:Math.floor(Math.random()*cols),type:'enemy-yellow'});
+    const exit={r:rows-1,c:cols-1};
+    return {walls,golds,potions,enemies,exit};
 }
 
-function drawGrid(){
-  for(let r=0;r<rows;r++){
-    grid[r]=[];
-    for(let c=0;c<cols;c++){
-      const cell = document.createElement('div');
-      cell.classList.add('cell');
-      gameDiv.appendChild(cell);
-      grid[r][c]={element:cell, type:'empty'};
+function initLevel(lv){
+    grid=[]; gameDiv.innerHTML='';
+    player.r=0; player.c=0;
+    if(!levelData[lv]) levelData[lv]=generateLevel(lv);
+    drawGrid(levelData[lv]);
+    draw();
+}
+
+function drawGrid(data){
+    for(let r=0;r<rows;r++){
+        grid[r]=[];
+        for(let c=0;c<cols;c++){
+            const cell=document.createElement('div');
+            cell.classList.add('cell');
+            gameDiv.appendChild(cell);
+            grid[r][c]={element:cell,type:'empty'};
+        }
     }
-  }
-  walls.forEach(w=> grid[w.r][w.c].type='wall');
-  golds.forEach(g=> grid[g.r][g.c].type='gold');
-  potions.forEach(p=> grid[p.r][p.c].type='potion');
-  enemies.forEach(e=> grid[e.r][e.c].type='enemy');
+    data.walls.forEach(w=>grid[w.r][w.c].type='wall');
+    data.golds.forEach(g=>grid[w.r][w.c].type='gold');
+    data.potions.forEach(p=>grid[p.r][p.c].type='potion');
+    data.enemies.forEach(e=>grid[e.r][e.c].type=e.type);
+    grid[data.exit.r][data.exit.c].type='exit';
 }
 
 function draw(){
-  for(let r=0;r<rows;r++){
-    for(let c=0;c<cols;c++){
-      const cell = grid[r][c].element;
-      cell.className='cell';
-      switch(grid[r][c].type){
-        case 'wall': cell.classList.add('wall'); break;
-        case 'enemy': cell.classList.add('enemy'); break;
-        case 'gold': cell.classList.add('gold'); break;
-        case 'potion': cell.classList.add('potion'); break;
-      }
+    for(let r=0;r<rows;r++){
+        for(let c=0;c<cols;c++){
+            const cell=grid[r][c].element;
+            cell.className='cell';
+            switch(grid[r][c].type){
+                case 'wall': cell.classList.add('wall'); break;
+                case 'enemy-red': cell.classList.add('enemy-red'); break;
+                case 'enemy-green': cell.classList.add('enemy-green'); break;
+                case 'enemy-yellow': cell.classList.add('enemy-yellow'); break;
+                case 'gold': cell.classList.add('gold'); break;
+                case 'potion': cell.classList.add('potion'); break;
+                case 'exit': cell.classList.add('exit'); break;
+            }
+        }
     }
-  }
-  grid[player.r][player.c].element.classList.add('player');
-  hpSpan.textContent = player.hp;
-  goldSpan.textContent = player.gold;
+    grid[player.r][player.c].element.classList.add('player');
+    hpSpan.textContent=player.hp;
+    goldSpan.textContent=player.gold;
+    xpSpan.textContent=player.xp;
+    levelSpan.textContent=player.level;
 }
 
 function movePlayer(dr,dc){
-  const nr = player.r + dr;
-  const nc = player.c + dc;
-  if(nr<0||nr>=rows||nc<0||nc>=cols) return;
-  const dest = grid[nr][nc];
-  if(dest.type==='wall') return;
-  if(dest.type==='enemy'){
-    player.hp--;
-    if(player.hp<=0){ alert('Game Over'); init(); return; }
-    // Gegner zurücksetzen
-    enemies.forEach(e=>{ if(e.r===nr&&e.c===nc) { e.r=Math.floor(Math.random()*rows); e.c=Math.floor(Math.random()*cols); }});
-  }
-  if(dest.type==='gold'){ player.gold++; dest.type='empty'; }
-  if(dest.type==='potion'){ player.hp++; dest.type='empty'; }
-  player.r=nr; player.c=nc;
-  enemyMove();
-  draw();
+    const nr=player.r+dr,nc=player.c+dc;
+    if(nr<0||nr>=rows||nc<0||nc>=cols) return;
+    const dest=grid[nr][nc];
+    if(dest.type==='wall') return;
+
+    if(dest.type==='gold'){player.gold++; player.xp+=5; dest.type='empty';}
+    if(dest.type==='potion'){player.hp++; player.xp+=2; dest.type='empty';}
+    if(dest.type==='exit'){
+        if(player.level<maxLevels){player.level++; initLevel(player.level-1);}
+        else{alert('Alle Level abgeschlossen! 🎉');player.level=1;initLevel(0);}
+        return;
+    }
+
+    if(dest.type.includes('enemy')){
+        switch(dest.type){
+            case 'enemy-red': player.hp--; break;
+            case 'enemy-green': player.hp-=2; break;
+            case 'enemy-yellow': if(player.gold>0) player.gold--; break;
+        }
+        if(player.hp<=0){ alert('Game Over'); player.level=1; initLevel(0); return;}
+        // Gegner neu zufällig platzieren
+        const e=levelData[player.level-1].enemies.find(x=>x.r===nr&&x.c===nc);
+        e.r=Math.floor(Math.random()*rows); e.c=Math.floor(Math.random()*cols);
+        grid[e.r][e.c].type=e.type;
+    }
+
+    player.r=nr; player.c=nc;
+    enemyMove();
+    draw();
 }
 
 function enemyMove(){
-  enemies.forEach(e=>{
-    const dirs=[[0,1],[0,-1],[1,0],[-1,0]];
-    const [dr,dc] = dirs[Math.floor(Math.random()*dirs.length)];
-    const nr=e.r+dr; const nc=e.c+dc;
-    if(nr>=0&&nr<rows&&nc>=0&&nc<cols && grid[nr][nc].type==='empty' && !(nr===player.r && nc===player.c)){
-      grid[e.r][e.c].type='empty';
-      e.r=nr; e.c=nc;
-      grid[nr][nc].type='enemy';
-    }
-  });
+    const enemies=levelData[player.level-1].enemies;
+    enemies.forEach(e=>{
+        const dirs=[[0,1],[0,-1],[1,0],[-1,0]];
+        const [dr,dc]=dirs[Math.floor(Math.random()*dirs.length)];
+        const nr=e.r+dr,nc=e.c+dc;
+        if(nr>=0&&nr<rows&&nc>=0&&nc<cols && grid[nr][nc].type==='empty' && !(nr===player.r&&nc===player.c)){
+            grid[e.r][e.c].type='empty'; e.r=nr; e.c=nc; grid[nr][nc].type=e.type;
+        }
+    });
 }
 
-document.addEventListener('keydown', e=>{
-  if(e.key==='ArrowUp') movePlayer(-1,0);
-  if(e.key==='ArrowDown') movePlayer(1,0);
-  if(e.key==='ArrowLeft') movePlayer(0,-1);
-  if(e.key==='ArrowRight') movePlayer(0,1);
+document.addEventListener('keydown',e=>{
+    if(e.key==='ArrowUp') movePlayer(-1,0);
+    if(e.key==='ArrowDown') movePlayer(1,0);
+    if(e.key==='ArrowLeft') movePlayer(0,-1);
+    if(e.key==='ArrowRight') movePlayer(0,1);
 });
+document.getElementById('up').addEventListener('click',()=>movePlayer(-1,0));
+document.getElementById('down').addEventListener('click',()=>movePlayer(1,0));
+document.getElementById('left').addEventListener('click',()=>movePlayer(0,-1));
+document.getElementById('right').addEventListener('click',()=>movePlayer(0,1));
 
-// Mobile buttons
-document.getElementById('up').addEventListener('click', ()=>movePlayer(-1,0));
-document.getElementById('down').addEventListener('click', ()=>movePlayer(1,0));
-document.getElementById('left').addEventListener('click', ()=>movePlayer(0,-1));
-document.getElementById('right').addEventListener('click', ()=>movePlayer(0,1));
-
-init();
+initLevel(0);
 draw();
 </script>
 </body>

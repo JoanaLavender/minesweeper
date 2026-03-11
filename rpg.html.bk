@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mini RPG Advanced</title>
+<style>
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #222;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+h1 { margin: 20px 0 5px 0; }
+#stats { margin-bottom: 10px; }
+#game {
+  display: grid;
+  grid-template-columns: repeat(10, 40px);
+  grid-template-rows: repeat(10, 40px);
+  gap: 2px;
+}
+.cell {
+  width: 40px;
+  height: 40px;
+  background: #444;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: bold;
+  font-size: 1.2em;
+  border-radius: 5px;
+  transition: background 0.2s;
+}
+.player { background: #3498db; }
+.wall { background: #555; }
+.enemy { background: #e74c3c; }
+.gold { background: #f1c40f; }
+.potion { background: #2ecc71; }
+#controls {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(3, 60px);
+  gap: 5px;
+}
+button {
+  padding: 10px;
+  font-size: 1.2em;
+  border-radius: 5px;
+  border: none;
+  cursor: pointer;
+}
+@media (max-width:500px){
+  #game { grid-template-columns: repeat(10, 30px); grid-template-rows: repeat(10, 30px);}
+  .cell { width: 30px; height: 30px; font-size: 1em;}
+  #controls { grid-template-columns: repeat(3, 50px); }
+}
+</style>
+</head>
+<body>
+<h1>Mini RPG Advanced</h1>
+<div id="stats">HP: <span id="hp">10</span> | Gold: <span id="gold">0</span></div>
+<div id="game"></div>
+<div id="controls">
+  <button id="up">↑</button>
+  <button id="left">←</button>
+  <button id="down">↓</button>
+  <button id="right">→</button>
+</div>
+
+<script>
+const rows = 10, cols = 10;
+let player = { r: 0, c: 0, hp: 10, gold: 0 };
+let enemies = [{r:5,c:5},{r:7,c:2}];
+let golds = [{r:2,c:3},{r:7,c:1},{r:3,c:8}];
+let potions = [{r:4,c:0}];
+let walls = [{r:3,c:3},{r:4,c:4},{r:6,c:6}];
+
+const gameDiv = document.getElementById('game');
+const hpSpan = document.getElementById('hp');
+const goldSpan = document.getElementById('gold');
+
+let grid = [];
+
+function init() {
+  grid = [];
+  gameDiv.innerHTML = '';
+  player = { r:0, c:0, hp:10, gold:0 };
+  drawGrid();
+  draw();
+}
+
+function drawGrid(){
+  for(let r=0;r<rows;r++){
+    grid[r]=[];
+    for(let c=0;c<cols;c++){
+      const cell = document.createElement('div');
+      cell.classList.add('cell');
+      gameDiv.appendChild(cell);
+      grid[r][c]={element:cell, type:'empty'};
+    }
+  }
+  walls.forEach(w=> grid[w.r][w.c].type='wall');
+  golds.forEach(g=> grid[g.r][g.c].type='gold');
+  potions.forEach(p=> grid[p.r][p.c].type='potion');
+  enemies.forEach(e=> grid[e.r][e.c].type='enemy');
+}
+
+function draw(){
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      const cell = grid[r][c].element;
+      cell.className='cell';
+      switch(grid[r][c].type){
+        case 'wall': cell.classList.add('wall'); break;
+        case 'enemy': cell.classList.add('enemy'); break;
+        case 'gold': cell.classList.add('gold'); break;
+        case 'potion': cell.classList.add('potion'); break;
+      }
+    }
+  }
+  grid[player.r][player.c].element.classList.add('player');
+  hpSpan.textContent = player.hp;
+  goldSpan.textContent = player.gold;
+}
+
+function movePlayer(dr,dc){
+  const nr = player.r + dr;
+  const nc = player.c + dc;
+  if(nr<0||nr>=rows||nc<0||nc>=cols) return;
+  const dest = grid[nr][nc];
+  if(dest.type==='wall') return;
+  if(dest.type==='enemy'){
+    player.hp--;
+    if(player.hp<=0){ alert('Game Over'); init(); return; }
+    // Gegner zurücksetzen
+    enemies.forEach(e=>{ if(e.r===nr&&e.c===nc) { e.r=Math.floor(Math.random()*rows); e.c=Math.floor(Math.random()*cols); }});
+  }
+  if(dest.type==='gold'){ player.gold++; dest.type='empty'; }
+  if(dest.type==='potion'){ player.hp++; dest.type='empty'; }
+  player.r=nr; player.c=nc;
+  enemyMove();
+  draw();
+}
+
+function enemyMove(){
+  enemies.forEach(e=>{
+    const dirs=[[0,1],[0,-1],[1,0],[-1,0]];
+    const [dr,dc] = dirs[Math.floor(Math.random()*dirs.length)];
+    const nr=e.r+dr; const nc=e.c+dc;
+    if(nr>=0&&nr<rows&&nc>=0&&nc<cols && grid[nr][nc].type==='empty' && !(nr===player.r && nc===player.c)){
+      grid[e.r][e.c].type='empty';
+      e.r=nr; e.c=nc;
+      grid[nr][nc].type='enemy';
+    }
+  });
+}
+
+document.addEventListener('keydown', e=>{
+  if(e.key==='ArrowUp') movePlayer(-1,0);
+  if(e.key==='ArrowDown') movePlayer(1,0);
+  if(e.key==='ArrowLeft') movePlayer(0,-1);
+  if(e.key==='ArrowRight') movePlayer(0,1);
+});
+
+// Mobile buttons
+document.getElementById('up').addEventListener('click', ()=>movePlayer(-1,0));
+document.getElementById('down').addEventListener('click', ()=>movePlayer(1,0));
+document.getElementById('left').addEventListener('click', ()=>movePlayer(0,-1));
+document.getElementById('right').addEventListener('click', ()=>movePlayer(0,1));
+
+init();
+draw();
+</script>
+</body>
+</html>
