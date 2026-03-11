@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Minesweeper Deluxe</title>
+<style>
+  :root {
+    --bg-color: #1e1e2f;
+    --cell-color: #2c2c3e;
+    --cell-hover: #3a3a50;
+    --revealed-color: #e0e0e0;
+    --flag-color: #ff6b6b;
+    --mine-color: #ff4757;
+    --text-color: #ffffff;
+    --number-colors: #3498db #2ecc71 #e67e22 #e74c3c #9b59b6 #1abc9c #f1c40f #e84393;
+  }
+
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 0;
+    background: var(--bg-color);
+    color: var(--text-color);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+  }
+
+  h1 {
+    margin: 20px 0 0 0;
+    font-size: 2em;
+  }
+
+  #controls {
+    display: flex;
+    gap: 10px;
+    margin: 15px 0;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  select, button {
+    padding: 5px 10px;
+    border-radius: 5px;
+    border: none;
+    font-size: 1em;
+    cursor: pointer;
+  }
+
+  #info {
+    margin: 10px 0;
+    font-size: 1.1em;
+  }
+
+  #game {
+    display: grid;
+    gap: 2px;
+    margin-bottom: 20px;
+  }
+
+  .cell {
+    width: 35px;
+    height: 35px;
+    background: var(--cell-color);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+    font-size: 1.2em;
+    cursor: pointer;
+    user-select: none;
+    border-radius: 5px;
+    transition: background 0.2s;
+  }
+
+  .cell:hover {
+    background: var(--cell-hover);
+  }
+
+  .cell.revealed {
+    background: var(--revealed-color);
+    cursor: default;
+    color: black;
+  }
+
+  .cell.flagged {
+    background: var(--flag-color);
+    color: white;
+  }
+
+  .cell.mine {
+    background: var(--mine-color);
+    color: white;
+  }
+
+  @media (max-width: 500px) {
+    .cell { width: 25px; height: 25px; font-size: 1em; }
+  }
+
+</style>
+</head>
+<body>
+<h1>Minesweeper Deluxe</h1>
+
+<div id="controls">
+  <label>Schwierigkeit:
+    <select id="difficulty">
+      <option value="beginner">Beginner (9x9 / 10)</option>
+      <option value="intermediate">Intermediate (16x16 / 40)</option>
+      <option value="expert">Expert (30x16 / 99)</option>
+    </select>
+  </label>
+  <button id="reset">Neu starten</button>
+</div>
+
+<div id="info">
+  <span id="timer">Zeit: 0</span> |
+  <span id="flags">Flags: 0</span> |
+  <span id="highscore">Bestzeit: –</span>
+</div>
+
+<div id="game"></div>
+
+<script>
+const difficulties = {
+  beginner: { rows: 9, cols: 9, mines: 10 },
+  intermediate: { rows: 16, cols: 16, mines: 40 },
+  expert: { rows: 16, cols: 30, mines: 99 }
+};
+
+let grid = [], revealedCount = 0, flaggedCount = 0, gameOver = false;
+let timer = 0, timerInterval;
+let rows, cols, mines;
+
+const gameDiv = document.getElementById('game');
+const timerSpan = document.getElementById('timer');
+const flagsSpan = document.getElementById('flags');
+const highscoreSpan = document.getElementById('highscore');
+const resetBtn = document.getElementById('reset');
+const difficultySelect = document.getElementById('difficulty');
+
+function init() {
+  clearInterval(timerInterval);
+  timer = 0;
+  revealedCount = 0;
+  flaggedCount = 0;
+  gameOver = false;
+  timerSpan.textContent = 'Zeit: 0';
+  flagsSpan.textContent = 'Flags: 0';
+
+  const diff = difficulties[difficultySelect.value];
+  rows = diff.rows; cols = diff.cols; mines = diff.mines;
+
+  gameDiv.innerHTML = '';
+  gameDiv.style.gridTemplateRows = `repeat(${rows}, 35px)`;
+  gameDiv.style.gridTemplateColumns = `repeat(${cols}, 35px)`;
+  if (cols > 20) gameDiv.style.gridTemplateColumns = `repeat(${cols}, 20px)`;
+
+  grid = [];
+  for (let r = 0; r < rows; r++) {
+    grid[r] = [];
+    for (let c = 0; c < cols; c++) {
+      const cell = document.createElement('div');
+      cell.classList.add('cell');
+      cell.dataset.row = r;
+      cell.dataset.col = c;
+      cell.addEventListener('click', leftClick);
+      cell.addEventListener('contextmenu', rightClick);
+      gameDiv.appendChild(cell);
+      grid[r][c] = { element: cell, mine: false, revealed: false, flagged: false, number: 0 };
+    }
+  }
+
+  const hsKey = 'minesweeper_hs_' + difficultySelect.value;
+  const bestTime = localStorage.getItem(hsKey);
+  highscoreSpan.textContent = 'Bestzeit: ' + (bestTime ? bestTime + 's' : '–');
+}
+
+function placeMines(excludeRow, excludeCol) {
+  let placed = 0;
+  while (placed < mines) {
+    const r = Math.floor(Math.random() * rows);
+    const c = Math.floor(Math.random() * cols);
+    if ((r === excludeRow && c === excludeCol) || grid[r][c].mine) continue;
+    grid[r][c].mine = true;
+    placed++;
+  }
+  calculateNumbers();
+}
+
+function calculateNumbers() {
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (grid[r][c].mine) continue;
+      let count = 0;
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          const nr = r + dr, nc = c + dc;
+          if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && grid[nr][nc].mine) count++;
+        }
+      }
+      grid[r][c].number = count;
+    }
+  }
+}
+
+function leftClick(e) {
+  if (gameOver) return;
+  const r = parseInt(this.dataset.row);
+  const c = parseInt(this.dataset.col);
+  if (grid[r][c].flagged) return;
+
+  if (timer === 0) timerInterval = setInterval(() => { timer++; timerSpan.textContent = 'Zeit: ' + timer; }, 1000);
+  if (!grid.some(row => row.some(cell => cell.revealed))) placeMines(r, c); 
+
+  revealCell(r, c);
+  checkWin();
+}
+
+function rightClick(e) {
+  e.preventDefault();
+  if (gameOver) return;
+  const r = parseInt(this.dataset.row);
+  const c = parseInt(this.dataset.col);
+  const cell = grid[r][c];
+
+  if (!cell.revealed) {
+    cell.flagged = !cell.flagged;
+    cell.element.classList.toggle('flagged', cell.flagged);
+    flaggedCount += cell.flagged ? 1 : -1;
+    flagsSpan.textContent = 'Flags: ' + flaggedCount;
+  }
+}
+
+function revealCell(r, c) {
+  const cell = grid[r][c];
+  if (cell.revealed || cell.flagged) return;
+
+  cell.revealed = true;
+  cell.element.classList.add('revealed');
+  revealedCount++;
+
+  if (cell.mine) {
+    cell.element.textContent = '💣';
+    cell.element.classList.add('mine');
+    endGame(false);
+    return;
+  }
+
+  if (cell.number > 0) {
+    cell.element.textContent = cell.number;
+    cell.element.style.color = getComputedStyle(document.documentElement).getPropertyValue(`--number-colors`).split(' ')[(cell.number-1) % 8];
+  } else {
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        const nr = r + dr, nc = c + dc;
+        if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) revealCell(nr, nc);
+      }
+    }
+  }
+}
+
+function endGame(won) {
+  gameOver = true;
+  clearInterval(timerInterval);
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const cell = grid[r][c];
+      if (cell.mine) cell.element.textContent = '💣';
+    }
+  }
+
+  if (won) {
+    const hsKey = 'minesweeper_hs_' + difficultySelect.value;
+    const prevBest = parseInt(localStorage.getItem(hsKey) || Infinity);
+    if (timer < prevBest) localStorage.setItem(hsKey, timer);
+  }
+
+  setTimeout(() => alert(won ? 'Du hast gewonnen! 🎉' : 'Game Over 💥'), 100);
+  updateHighscore();
+}
+
+function checkWin() {
+  if (revealedCount === rows * cols - mines) endGame(true);
+}
+
+function updateHighscore() {
+  const hsKey = 'minesweeper_hs_' + difficultySelect.value;
+  const bestTime = localStorage.getItem(hsKey);
+  highscoreSpan.textContent = 'Bestzeit: ' + (bestTime ? bestTime + 's' : '–');
+}
+
+resetBtn.addEventListener('click', init);
+difficultySelect.addEventListener('change', init);
+
+init();
+</script>
+</body>
+</html>
